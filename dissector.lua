@@ -47,11 +47,19 @@ function isa_protocol.dissector(buffer, pinfo, tree, offset)
       subtree:add(password, request_table[2])
     else if req_res == "list" or req_res == "logout" then
       subtree:add(token, request_table[1])
-    --else if req_res == "fetch" then
-    else return 0 -- invalid package - ignore
+    --else if req_res == "fetch" then -- fix fetch
+    --else return 0 -- invalid package - ignore
     end
   end
 end
+
+  -- reassemble long messages
+  local ending_chars = buffer(info_length-2, 2):string()
+  if ending_chars ~= '")' and ending_chars ~= "))" and req_res ~= "fetch" then
+    pinfo.desegment_len = DESEGMENT_ONE_MORE_SEGMENT
+    return
+  end
+
 end
 
 
