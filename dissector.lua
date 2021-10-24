@@ -14,11 +14,13 @@ user = ProtoField.string("user", "User", base.UNICODE)
 password = ProtoField.string("password", "Encrypted password", base.UNICODE)
 token = ProtoField.string("token", "Login token", base.UNICODE)
 recipient = ProtoField.string("recipient", "Recipient", base.UNICODE)
+sender = ProtoField.string("sender", "Sender", base.UNICODE)
 subject = ProtoField.string("subject", "Subject", base.UNICODE)
 body = ProtoField.string("body", "Message body", base.UNICODE)
 msg_id = ProtoField.string("msg_id", "Message ID", base.uint16)
+msg_count = ProtoField.string("msg_count", "Message count", base.uint16)
 
-isa_protocol.fields = { message_type, request, response, message, user, password, token, recipient, subject, body, msg_id }
+isa_protocol.fields = { message_type, request, response, message, user, password, token, recipient, sender, subject, body, msg_id, msg_count }
 
 function isa_protocol.dissector(buffer, pinfo, tree, offset)
   length = buffer:len()
@@ -39,29 +41,45 @@ function isa_protocol.dissector(buffer, pinfo, tree, offset)
     pinfo.desegment_len = reassembly(buffer, info_length, req_res)
 
   --* packet is server response
+  --* ERR
   if req_res == "err" then
     prev_req = get_matching_request(stream_idx_ex.value)
     subtree:add(message_type, "response")
     subtree:add(request, prev_req)
     subtree:add(response, "error")
+    local err_msg = string.match(msg, '"(.-)"')
+    if err_msg ~= nil then subtree:add(message, err_msg) end
 
-    local response_table = {}
-    for chunk in string.gmatch(msg, '"(.-)"') do 
-      table.insert(response_table, chunk) 
-    end
-    if response_table[1] ~= nil then subtree:add(message, response_table[1]) end
+  --* OK
   elseif req_res == "ok" then
     prev_req = get_matching_request(stream_idx_ex.value)
     subtree:add(message_type, "response")
     subtree:add(request, prev_req)
     subtree:add(response, "ok")
+
+    --* parse double-quoted expressions and insert into table
     local response_table = {}
     for chunk in string.gmatch(msg, '"(.-)"') do 
       table.insert(response_table, chunk) 
     end
 
-    if response_table[1] ~= nil then subtree:add(message, response_table[1]) end
-    if response_table[2] ~= nil then subtree:add(token, response_table[2]) end
+    --* insert into the subtree according to the request
+    if prev_req == "register" or prev_req == "send" or prev_req == "logout" then
+      subtree:add(message, response_table[1])
+    elseif prev_req == "login" then
+      subtree:add(message, response_table[1])
+      subtree:add(token, response_table[2])
+    elseif prev_req == "list" then
+      local msg_listed = select(2, string.gsub(msg, "%(%d+", ""))
+      subtree:add(msg_count, msg_listed)
+    elseif prev_req == "fetch" then
+      subtree:add(sender, response_table[1])
+      subtree:add(subject, response_table[2])
+      subtree:add(body, response_table[3])
+    --* invalid package - ignore
+    else return
+    end
+
   --* packet is client request
   else
     local stream_idx_ex = stream_index()
