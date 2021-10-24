@@ -39,16 +39,27 @@ function isa_protocol.dissector(buffer, pinfo, tree, offset)
     pinfo.desegment_len = reassembly(buffer, info_length, req_res)
 
   --* packet is server response
-  if req_res == "ok" or req_res == "err" then
+  if req_res == "err" then
     prev_req = get_matching_request(stream_idx_ex.value)
-
     subtree:add(message_type, "response")
-    subtree:add(response, req_res)
     subtree:add(request, prev_req)
+    subtree:add(response, "error")
+
     local response_table = {}
     for chunk in string.gmatch(msg, '"(.-)"') do 
       table.insert(response_table, chunk) 
     end
+    if response_table[1] ~= nil then subtree:add(message, response_table[1]) end
+  elseif req_res == "ok" then
+    prev_req = get_matching_request(stream_idx_ex.value)
+    subtree:add(message_type, "response")
+    subtree:add(request, prev_req)
+    subtree:add(response, "ok")
+    local response_table = {}
+    for chunk in string.gmatch(msg, '"(.-)"') do 
+      table.insert(response_table, chunk) 
+    end
+
     if response_table[1] ~= nil then subtree:add(message, response_table[1]) end
     if response_table[2] ~= nil then subtree:add(token, response_table[2]) end
   --* packet is client request
