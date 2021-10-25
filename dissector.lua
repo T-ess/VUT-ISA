@@ -49,6 +49,7 @@ function isa_protocol.dissector(buffer, pinfo, tree, offset)
     subtree:add(response, "error")
     local err_msg = string.match(msg, '"(.-)"')
     if err_msg ~= nil then subtree:add(message, err_msg) end
+    pinfo.cols.info = prev_req .. " response - ERR, " .. err_msg
 
   --* OK
   elseif req_res == "ok" then
@@ -56,7 +57,7 @@ function isa_protocol.dissector(buffer, pinfo, tree, offset)
     subtree:add(message_type, "response")
     subtree:add(request, prev_req)
     subtree:add(response, "ok")
-
+    pinfo.cols.info = prev_req .. " response - OK"
     --* parse double-quoted expressions and insert into table
     local response_table = {}
     for chunk in string.gmatch(msg, '"(.-)"') do 
@@ -66,16 +67,20 @@ function isa_protocol.dissector(buffer, pinfo, tree, offset)
     --* insert into the subtree according to the request
     if prev_req == "register" or prev_req == "send" or prev_req == "logout" then
       subtree:add(message, response_table[1])
+      pinfo.cols.info:append(", " .. response_table[1])
     elseif prev_req == "login" then
       subtree:add(message, response_table[1])
       subtree:add(token, response_table[2])
+      pinfo.cols.info:append(", token " .. response_table[2])
     elseif prev_req == "list" then
       local msg_listed = select(2, string.gsub(msg, "%(%d+", ""))
       subtree:add(msg_count, msg_listed)
+      pinfo.cols.info:append(", " .. msg_listed .. " message(s) found")
     elseif prev_req == "fetch" then
       subtree:add(sender, response_table[1])
       subtree:add(subject, response_table[2])
       subtree:add(body, response_table[3])
+      pinfo.cols.info:append(", sender " .. response_table[1] .. ", subject " .. response_table[2])
     --* invalid package - ignore
     else return
     end
@@ -85,7 +90,7 @@ function isa_protocol.dissector(buffer, pinfo, tree, offset)
     local stream_idx_ex = stream_index()
     subtree:add(message_type, "request")
     subtree:add(request, req_res)
-        
+    pinfo.cols.info = req_res .. " request - "
     --* parse double-quoted expressions and insert into table
     -- https://stackoverflow.com/questions/42206244/lua-find-and-return-string-in-double-quotes
     request_table = {}
@@ -97,23 +102,29 @@ function isa_protocol.dissector(buffer, pinfo, tree, offset)
     if req_res == "register" or req_res == "login" then
       subtree:add(user, request_table[1])
       subtree:add(password, request_table[2])
+      pinfo.cols.info:append("user " .. request_table[1])
+
     elseif req_res == "list" or req_res == "logout" then
       subtree:add(token, request_table[1])
+      pinfo.cols.info:append("token " .. request_table[1])
     elseif req_res == "send" then
       subtree:add(token, request_table[1])
       subtree:add(recipient, request_table[2])
       subtree:add(subject, request_table[3])
       subtree:add(body, request_table[4])
+      pinfo.cols.info:append("token " .. request_table[1] .. ", recipient " .. request_table[2] .. ", subject " .. request_table[3])
     elseif req_res == "fetch" then
+      local get_msg_id = string.match(msg, "(%d+)%)")
       subtree:add(token, request_table[1])
-      subtree:add(msg_id, string.match(msg, "(%d+)%)"))
+      subtree:add(msg_id, get_msg_id)
+      pinfo.cols.info:append("token " .. request_table[1] .. ", message ID " .. get_msg_id)
     --* invalid package - ignore
     else return
     end
   end
 
   --* set request name of the current packet stream
-  set_matching_request(stream_idx_ex.value, req_res)
+    set_matching_request(pinfo, stream_idx_ex.value, req_res)
 
 end
 
@@ -132,8 +143,8 @@ end
 
 --- Set the request name according to the stream index.
 -- @param stream_index_num number: stream index.
-function set_matching_request(stream_index_num, val)
-  if req_res_match[stream_index_num] == nil then
+function set_matching_request(pinfo, stream_index_num, val)
+  if val ~= "ok" and val ~= "err" and not pinfo.visited then
     req_res_match[stream_index_num] = val
   end
   return
