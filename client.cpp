@@ -39,63 +39,78 @@ void *get_in_addr(struct sockaddr *sa)
 
 int main(int argc, char *argv[])
 {
-    // int sockfd, numbytes;  
-    // char buf[MAXDATASIZE];
-    // struct addrinfo hints, *server_info, *p;
-    // int rv;
-    // char s[INET6_ADDRSTRLEN];
+    int sockfd;  
+    struct addrinfo hints, *server_info, *p;
+    int rv;
 
     parseargs(argc, argv);
 
-    // //* IP setup
-    // memset(&hints, 0, sizeof hints);
-    // hints.ai_family = AF_UNSPEC; //* IPv4 or IPv6
-    // hints.ai_socktype = SOCK_STREAM; //* TCP
+    //* IP setup
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC; //* IPv4 or IPv6
+    hints.ai_socktype = SOCK_STREAM; //* TCP
 
-    // if ((rv = getaddrinfo(args.addr.c_str(), args.port.c_str(), &hints, &server_info)) != 0) {
-    //     fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-    //     return 1;
-    // }
+    if ((rv = getaddrinfo(args.addr.c_str(), args.port.c_str(), &hints, &server_info)) != 0) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+        return 1;
+    }
 
-    // // loop through all the results and connect to the first we can
-    // for(p = server_info; p != NULL; p = p->ai_next) {
-    //     sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-    //     //* invalid socket, check next list value
-    //     if (sockfd == -1) {
-    //         perror("client: socket");
-    //         continue;
-    //     }
-    //     //* unable to connect, check next list value
-    //     if (connect(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
-    //         close(sockfd);
-    //         perror("client: connect");
-    //         continue;
-    //     }
-    //     break;
-    // }
+    // loop through all the results and connect to the first we can
+    for(p = server_info; p != NULL; p = p->ai_next) {
+        sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+        //* invalid socket, check next list value
+        if (sockfd == -1) {
+            perror("client: socket");
+            continue;
+        }
+        //* unable to connect, check next list value
+        if (connect(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
+            close(sockfd);
+            perror("client: connect");
+            continue;
+        }
+        break;
+    }
 
-    // if (p == NULL) {
-    //     fprintf(stderr, "Client failed to connect to the server.\n");
-    //     return 2;
-    // }
+    if (p == NULL) {
+        fprintf(stderr, "Client failed to connect to the server.\n");
+        return 2;
+    }
 
-    // freeaddrinfo(server_info); //* connected - free the structure with server info
+    freeaddrinfo(server_info); //* connected - free the structure with server info
 
     std::string message = get_message(argc, argv);
-    printf("%s\n", args.addr.c_str());
-    printf("%s\n", args.port.c_str());
-    printf("%s\n", message.c_str());
-    
-    // if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
-    //     perror("recv");
-    //     exit(1);
-    // }
+    char buf[MAXDATASIZE];
+    std::string response = "";
+    int msg_len = message.length();
+    int numbytes = 0;
 
-    // buf[numbytes] = '\0';
+    do {
+        message.copy(buf, MAXDATASIZE-1, 0);
+        message.erase(0, MAXDATASIZE-1);
+        if ((numbytes += send(sockfd, buf, msg_len, 0)) == -1) {
+            perror("Error sending the message.\n");
+            exit(1);
+        }
+        memset(buf, '\0', MAXDATASIZE);
+    } while (numbytes < msg_len);
 
-    // printf("client: received '%s'\n",buf);
 
-    // close(sockfd);
+    numbytes = 0;
+
+    do {
+        if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
+            perror("Error receiving the message.\n");
+            exit(1);
+        } else if (numbytes > 0) {
+            response += buf;
+        }
+        memset(buf, '\0', MAXDATASIZE);
+    } while (numbytes > 0);
+
+    printf("%s\n",response.c_str());
+
+    close(sockfd);
 
     return 0;
 }
@@ -157,7 +172,7 @@ void p_help() {
 }
 
 std::string get_message(int argc, char** argv) {
-    std::string msg;
+    std::string msg = "(";
     std::string command = argv[optind];
     
     if (command == "register" || command == "login") {
@@ -166,14 +181,14 @@ std::string get_message(int argc, char** argv) {
         }
         std::string nickname = argv[++optind];
         std::string password = encoding::Base64::Encode(argv[++optind]);
-        msg = command + " \"" + nickname + "\" \"" + password + "\"";
+        msg += command + " \"" + nickname + "\" \"" + password + "\")";
 
     } else if (command == "list" or command == "logout") {
         if (argc != optind + 1) { //* 0 arguments + 1 (index -> count)
             return "";
         }
         std::string token = get_token();
-        msg = command + " " + token;
+        msg += command + " " + token + ")";
         //* remove file with current user's token
         if (command == "logout") {
             std::remove("login-token.txt");
@@ -185,7 +200,7 @@ std::string get_message(int argc, char** argv) {
         }
         std::string msg_id = argv[++optind];
         std::string token = get_token();
-        msg = command + " " + token + " " + msg_id;
+        msg += command + " " + token + " " + msg_id + ")";
 
     } else if (command == "send") {
         if (argc != optind + 4) { //* 3 arguments + 1 (index -> count)
@@ -195,7 +210,7 @@ std::string get_message(int argc, char** argv) {
         std::string recipient = argv[++optind];
         std::string subject = argv[++optind];
         std::string body = argv[++optind];
-        msg = command + " " + token + " \"" + recipient + "\" \"" + subject + "\" \"" + body + "\"";
+        msg += command + " " + token + " \"" + recipient + "\" \"" + subject + "\" \"" + body + "\")";
 
     } else {
         //! invalid command
