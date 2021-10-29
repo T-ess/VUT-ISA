@@ -45,17 +45,15 @@ int main(int argc, char *argv[])
 
     parseargs(argc, argv);
 
-    //* IP setup
+    //* coonnection setup
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC; //* IPv4 or IPv6
     hints.ai_socktype = SOCK_STREAM; //* TCP
-
     if ((rv = getaddrinfo(args.addr.c_str(), args.port.c_str(), &hints, &server_info)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
         return 1;
     }
-
-    // loop through all the results and connect to the first we can
+    //* loop through all the results and connect to the first we can
     for(p = server_info; p != NULL; p = p->ai_next) {
         sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
         //* invalid socket, check next list value
@@ -79,36 +77,27 @@ int main(int argc, char *argv[])
 
     freeaddrinfo(server_info); //* connected - free the structure with server info
 
-    std::string message = get_message(argc, argv);
-    char buf[MAXDATASIZE];
-    std::string response = "";
-    int msg_len = message.length();
-    int numbytes = 0;
+    std::string command = argv[optind];
+    std::string message = get_message(argc, argv, command);
+    std::string response;
 
-    do {
-        message.copy(buf, MAXDATASIZE-1, 0);
-        message.erase(0, MAXDATASIZE-1);
-        if ((numbytes += send(sockfd, buf, msg_len, 0)) == -1) {
-            perror("Error sending the message.\n");
-            exit(1);
-        }
-        memset(buf, '\0', MAXDATASIZE);
-    } while (numbytes < msg_len);
+    if (message == "") {
+        close(sockfd);
+        return 1;
+    }
 
+    if (send_data(message, sockfd) != 0) {
+        close(sockfd);
+        return 2;
+    }
 
-    numbytes = 0;
+    response = receive_data(sockfd);
+    if (response == "") {
+        close(sockfd);
+        return 2;
+    }
 
-    do {
-        if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
-            perror("Error receiving the message.\n");
-            exit(1);
-        } else if (numbytes > 0) {
-            response += buf;
-        }
-        memset(buf, '\0', MAXDATASIZE);
-    } while (numbytes > 0);
-
-    printf("%s\n",response.c_str());
+    terminal_response(response, command);
 
     close(sockfd);
 
@@ -171,9 +160,40 @@ void p_help() {
     exit(0);
 }
 
-std::string get_message(int argc, char** argv) {
+int send_data(std::string message, int sockfd) {
+    char buf[MAXDATASIZE];
+    int msg_len = message.length();
+    int numbytes = 0;
+    do {
+        message.copy(buf, MAXDATASIZE-1, 0);
+        message.erase(0, MAXDATASIZE-1);
+        if ((numbytes += send(sockfd, buf, msg_len, 0)) == -1) {
+            perror("Error sending the message.\n");
+            return 1;
+        }
+        memset(buf, '\0', MAXDATASIZE);
+    } while (numbytes < msg_len);
+    return 0;
+}
+
+std::string receive_data(int sockfd) {
+    char buf[MAXDATASIZE];
+    std::string response = "";
+    int numbytes = 0;
+        do {
+            if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
+                perror("Error receiving the message.\n");
+                return "";
+            } else if (numbytes > 0) {
+                response += buf;
+            }
+            memset(buf, '\0', MAXDATASIZE);
+        } while (numbytes > 0);
+        return response;
+}
+
+std::string get_message(int argc, char** argv, std::string command) {
     std::string msg = "(";
-    std::string command = argv[optind];
     
     if (command == "register" || command == "login") {
         if (argc != optind + 3) { //* 2 arguments + 1 (index -> count)
@@ -217,6 +237,27 @@ std::string get_message(int argc, char** argv) {
         return "";
     }
     return msg;
+}
+
+std::string terminal_response(std::string server_response, std::string command) {
+    std::string message;
+    std::string state = server_response.substr(0, server_response.find(" "));
+    if (state == "ok") {
+        message += "SUCCESS: ";
+    } else if (state == "err") {
+        message += "ERROR: ";
+    } else {
+        fprintf(stderr, "Invalid server response.");
+    }
+
+    if (command == "list") {
+
+    } else if (command == "fetch") {
+
+    } else {
+        
+    }
+
 }
 
 int set_token(std::string token) {

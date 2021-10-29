@@ -41,7 +41,9 @@ void parseargs(int argc, char** argv);
 
 void p_help();
 
-std::string get_message(int argc, char** argv);
+std::string get_message(int argc, char** argv, std::string command);
+
+std::string terminal_response(std::string server_response, std::string command);
 
 int set_token(std::string token);
 
