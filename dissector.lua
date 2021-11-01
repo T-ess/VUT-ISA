@@ -3,7 +3,7 @@ isa_protocol = Proto("ISAmail",  "ISA Project Mail")
 req_res_match = {}
 -- https://ask.wireshark.org/question/15238/how-to-get-current-frame-number-or-stream-number-in-lua-plugin/
 local stream_index = Field.new("tcp.stream")
-local get_matching_request, set_matching_request, reassembly
+local get_matching_request, set_matching_request, reassembly, escaped_chars
 
 message_type = ProtoField.string("message_type", "Message type", base.UNICODE) -- request or response
 request = ProtoField.string("request", "Request", base.UNICODE) -- exact request or response
@@ -60,7 +60,9 @@ function isa_protocol.dissector(buffer, pinfo, tree, offset)
     pinfo.cols.info = prev_req .. " response - OK"
     --* parse double-quoted expressions and insert into table
     local response_table = {}
+    msg = string.gsub(msg, "\\\"", "<char34>")
     for chunk in string.gmatch(msg, '"(.-)"') do 
+      chunk = escaped_chars(chunk)
       table.insert(response_table, chunk) 
     end
 
@@ -94,7 +96,9 @@ function isa_protocol.dissector(buffer, pinfo, tree, offset)
     --* parse double-quoted expressions and insert into table
     -- https://stackoverflow.com/questions/42206244/lua-find-and-return-string-in-double-quotes
     request_table = {}
+    msg = string.gsub(msg, "\\\"", "<char34>")
     for chunk in string.gmatch(msg, '"(.-)"') do 
+      chunk = escaped_chars(chunk)
       table.insert(request_table, chunk) 
     end
 
@@ -131,6 +135,7 @@ end
 local tcp_port = DissectorTable.get("tcp.port")
 tcp_port:add(32323, isa_protocol)
 
+
 function reassembly(buffer, len, current_request)
   local ending_char = buffer(len-1, 1):string()
   local ending_chars = buffer(len-2, 2):string()
@@ -161,3 +166,11 @@ function get_matching_request(stream_index_num)
     return "unknown"
   end
 end
+
+function escaped_chars(text)
+  text = string.gsub(text,"<char34>","\"")
+  text = string.gsub(text,"\\n","\n")
+  text = string.gsub(text,"\\\\","\\")
+  return text
+end
+
