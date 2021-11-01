@@ -5,6 +5,8 @@
 #include <cstring>
 #include <string>
 #include <fstream> // files
+#include <regex>
+
 
 #include <pcap.h>
 
@@ -35,15 +37,29 @@ struct s_args {
     std::string port = "32323";
 } args;
 
-std::set<std::string> req_list {"register", "login", "list", "send", "fetch", "logout"};
-
 void parseargs(int argc, char** argv);
 
 void p_help();
 
+int send_data(std::string message, int sockfd);
+
+std::string receive_data(int sockfd);
+
 std::string get_message(int argc, char** argv, std::string command);
 
 std::string terminal_response(std::string server_response, std::string command);
+
+std::vector<std::string> split_response(std::string server_response);
+
+std::string replace_all(std::string msg, std::string replaced, std::string replace);
+
+std::string escaped_to_special(std::string input_msg);
+
+std::string special_to_char(std::string input_msg);
+
+std::string char_to_escaped(std::string input_msg);
+
+int resolve_tokens(bool state, std::string command, std::string token);
 
 int set_token(std::string token);
 
