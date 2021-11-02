@@ -49,7 +49,7 @@ std::string get_message(int argc, char** argv, std::string command);
 
 std::string terminal_response(std::string server_response, std::string command);
 
-std::vector<std::string> split_response(std::string server_response);
+std::vector<std::string> split_response(std::string server_response, bool list_fetch);
 
 std::string replace_all(std::string msg, std::string replaced, std::string replace);
 

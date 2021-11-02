@@ -246,21 +246,28 @@ std::string terminal_response(std::string server_response, std::string command) 
         return "";
     }
     
-    //* get all parts of response as an array
-    response_array = split_response(server_response);
-
     //* get response according to the command
     if (command == "list") {
-        for (int i = 0; i < (int)response_array.size(); i++) {
-            printf("%s\n", response_array[i].c_str());
+        //* get all parts of response as an array
+        response_array = split_response(server_response, true);
+        message += "\n";
+        //* print all messages
+        int msg_index = 1;
+        for (int i = 1; i < (int)response_array.size(); i+=2) {
+            message += std::to_string(msg_index) + ":\n"; // message index
+            message += "  From: " + response_array[i] + "\n"; // sender
+            message += "  Subject: " + response_array[i+1] + "\n"; // subject
+            msg_index++;
         }
-        message = message;
     } else if (command == "fetch") {
-        for (int i = 0; i < (int)response_array.size(); i++) {
-            printf("%s\n", response_array[i].c_str());
-        }
-        message = message;
+        //* get all parts of response as an array
+        response_array = split_response(server_response, true);
+        message += "\n\nFrom: " + response_array[0] + "\n"; // sender
+        message += "Subject: " + response_array[1] + "\n\n"; // subject
+        message += response_array[2]; // message
     } else {
+        //* get all parts of response as an array
+        response_array = split_response(server_response, false);
         if (response_array.size() < 1) {
             fprintf(stderr, "Invalid server response.\n");
             return "";
@@ -279,7 +286,7 @@ std::string terminal_response(std::string server_response, std::string command) 
     return message;
 }
 
-std::vector<std::string> split_response(std::string server_response) {
+std::vector<std::string> split_response(std::string server_response, bool list_fetch) {
     size_t pos = 0;
     std::string substring;
     std::vector<std::string> response_array {};
@@ -298,9 +305,17 @@ std::vector<std::string> split_response(std::string server_response) {
     server_response.pop_back(); // erase the quote at the end
     response_array.push_back(server_response);
 
+    std::regex list_fetch01 ("\"\\)( )?(\\()?[0-9]*$");
+    std::regex list_fetch02 ("^( )*(\\()?(\")?");
+
     for (int i = 0; i < (int)response_array.size(); i++) {
         response_array[i] = special_to_char(response_array[i]);
+        if (list_fetch) {
+            response_array[i] = std::regex_replace(response_array[i], list_fetch01, "");
+            response_array[i] = std::regex_replace(response_array[i], list_fetch02, "");
+        }
     }
+
     return response_array;
 }
 
