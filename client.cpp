@@ -218,7 +218,6 @@ std::string get_message(int argc, char** argv, std::string command) {
         std::string recipient = char_to_escaped(argv[++optind]);
         std::string subject = char_to_escaped(argv[++optind]);
         std::string body = char_to_escaped(argv[++optind]);
-        printf("%s\n", body.c_str());
         msg += command + " " + token + " \"" + recipient + "\" \"" + subject + "\" \"" + body + "\")";
 
     } else {
@@ -365,10 +364,7 @@ int resolve_tokens(bool state, std::string command, std::string token) {
             }
         } else if (command == "logout") {
             //* remove file with current user's token
-            if (std::remove("login-token") != 0) {
-                fprintf(stderr, "Error while removing the current login token.\n");
-                return 1;
-            }
+            std::remove("login-token");
         }
     }
     return 0;
