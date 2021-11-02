@@ -250,6 +250,10 @@ std::string terminal_response(std::string server_response, std::string command) 
     if (command == "list") {
         //* get all parts of response as an array
         response_array = split_response(server_response, true);
+        if (!ok) {
+            message += response_array[0];
+            return message;
+        }
         message += "\n";
         //* print all messages
         int msg_index = 1;
@@ -262,6 +266,10 @@ std::string terminal_response(std::string server_response, std::string command) 
     } else if (command == "fetch") {
         //* get all parts of response as an array
         response_array = split_response(server_response, true);
+        if (!ok) {
+            message += response_array[0];
+            return message;
+        }
         message += "\n\nFrom: " + response_array[0] + "\n"; // sender
         message += "Subject: " + response_array[1] + "\n\n"; // subject
         message += response_array[2]; // message
@@ -381,7 +389,7 @@ std::string get_token() {
     std::string token;
     std::ifstream file("login-token"); //* read mode
     if (file.fail()) {
-        fprintf(stderr, "Error while getting the login token.\n");
+        printf("Not logged in.\n");
         return "\"\"";
     }
     file >> token;
