@@ -2,3 +2,4 @@
 *.o
 client
 .vscode
+test

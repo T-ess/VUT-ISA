@@ -1,8 +1,7 @@
 #ifndef _BASE64_H_
 #define _BASE64_H_
 
-//! https://gist.github.com/0x3f00/90edbec0c04616d0b8c21586762bf1ac
-
+// https://gist.github.com/0x3f00/90edbec0c04616d0b8c21586762bf1ac
 /**
  * The MIT License (MIT)
  * Copyright (c) 2016 tomykaira

@@ -1,3 +1,10 @@
+------------
+-- VUT FIT - ISA project
+-- Reverse-engineering of an unknown protocol.
+-- @module dissector
+-- @author Tereza Burianova, xburia28
+------------
+
 isa_protocol = Proto("ISAmail",  "ISA Project Mail")
 
 req_res_match = {}
@@ -22,6 +29,11 @@ msg_count = ProtoField.string("msg_count", "Message count", base.uint16)
 
 isa_protocol.fields = { message_type, request, response, message, user, password, token, recipient, sender, subject, body, msg_id, msg_count }
 
+---- Main protocol function.
+-- @param buffer Tvb: buffer.
+-- @param pinfo Pinfo: packet info.
+-- @param tree TreeItem: dissector tree.
+-- @param offset number: offset.
 function isa_protocol.dissector(buffer, pinfo, tree, offset)
   length = buffer:len()
   if length == 0 or length ~= buffer:reported_len() then return end
@@ -133,9 +145,14 @@ function isa_protocol.dissector(buffer, pinfo, tree, offset)
 end
 
 local tcp_port = DissectorTable.get("tcp.port")
-tcp_port:add(32323, isa_protocol)
+tcp_port:add(32323, isa_protocol) -- default server port
 
-
+---- Reassembly of several packets with one message.
+-- @param buffer Tvb: buffer.
+-- @param len number: length.
+-- @param current_request string: currently processed request.
+-- @return DESEGMENT_ONE_MORE_SEGMENT if there is another packet to process,
+-- or 0 if the message is complete.
 function reassembly(buffer, len, current_request)
   local ending_char = buffer(len-1, 1):string()
   local ending_chars = buffer(len-2, 2):string()
@@ -146,8 +163,11 @@ function reassembly(buffer, len, current_request)
   return 0
 end
 
+
 --- Set the request name according to the stream index.
+-- @param pinfo Pinfo: packet info.
 -- @param stream_index_num number: stream index.
+-- @param val string: value to be set.
 function set_matching_request(pinfo, stream_index_num, val)
   if val ~= "ok" and val ~= "err" and not pinfo.visited then
     req_res_match[stream_index_num] = val
@@ -167,6 +187,9 @@ function get_matching_request(stream_index_num)
   end
 end
 
+--- Change escape sequences to characters.
+-- @param text string: input text.
+-- @return string: output - edited string.
 function escaped_chars(text)
   text = string.gsub(text,"<char34>","\"")
   text = string.gsub(text,"\\n","\n")

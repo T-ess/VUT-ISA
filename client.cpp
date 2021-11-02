@@ -1,29 +1,30 @@
+/**
+ * @file client.cpp
+ * @author Tereza Burianova, xburia28
+ * @date 02 Nov 2021
+ * @brief ISA project - client implementation.
+ * 
+ * 
+ * 
+ * usage: client [ <option> ... ] <command> [<args>] ...
+ * <option> is one of
+ * -a <addr>, --address <addr>
+ *    Server hostname or address to connect to
+ * -p <port>, --port <port>
+ *    Server port to connect to
+ *    Server port to connect to
+ * --help, -h
+ *    Show this help
+ * Supported commands:
+ *  register <username> <password>
+ *  login <username> <password>
+ *  list
+ *  send <recipient> <subject> <body>
+ *  fetch <id>
+ *  logout
+ */
+
 #include "client.h"
-
-/*
-usage: client [ <option> ... ] <command> [<args>] ...
-
-<option> is one of
-
-  -a <addr>, --address <addr>
-     Server hostname or address to connect to
-  -p <port>, --port <port>
-     Server port to connect to
-  --help, -h
-     Show this help
-  --
-     Do not treat any remaining argument as a switch (at this level)
-
- Multiple single-letter switches can be combined after
- one `-`. For example, `-h-` is the same as `-h --`.
- Supported commands:
-   register <username> <password>
-   login <username> <password>
-   list
-   send <recipient> <subject> <body>
-   fetch <id>
-   logout
-*/
 
 #define MAXDATASIZE 32818 // max number of bytes we can get at once 
 
@@ -35,6 +36,11 @@ int main(int argc, char *argv[])
 
     parseargs(argc, argv);
 
+    /**
+     * Parts of the following code (network connection setup) were taken over from the "Beej's Guide to Network Programming" and edited accordingly.
+     * The C source code presented in this document is granted to the public domain, and is completely free of any license restriction.
+     * https://beej.us/guide/bgnet/html/
+    **/
     //* connection setup
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC; // IPv4 or IPv6
