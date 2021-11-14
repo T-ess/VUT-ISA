@@ -87,9 +87,18 @@ function isa_protocol.dissector(buffer, pinfo, tree, offset)
       subtree:add(token, response_table[2])
       pinfo.cols.info:append(", token " .. response_table[2])
     elseif prev_req == "list" then
-      local msg_listed = select(2, string.gsub(msg, "%(%d+", ""))
+      -- all messages except the first one + the first one
+      local msg_listed = select(2, string.gsub(msg, "%)%s%(%d+%s", "")) + select(2, string.gsub(msg, "%s%(%(%d+%s", ""))
       subtree:add(msg_count, msg_listed)
       pinfo.cols.info:append(", " .. msg_listed .. " message(s) found")
+      table_index = 1
+      for i = 1, msg_listed, 1 do
+        local name = "Message " .. i
+        local msg_subtree = subtree:add(isa_protocol, buffer(), name)
+        msg_subtree:add(sender, response_table[table_index])
+        msg_subtree:add(subject, response_table[table_index+1])
+        table_index = table_index + 2
+      end
     elseif prev_req == "fetch" then
       subtree:add(sender, response_table[1])
       subtree:add(subject, response_table[2])
