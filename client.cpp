@@ -74,6 +74,8 @@ int main(int argc, char *argv[])
     //* connected - free the structure with server info
     freeaddrinfo(server_info);
 
+    // end of code including parts taken over from the "Beej's Guide to Network Programming"
+
     std::string command = argv[optind];
     std::string message = get_message(argc, argv, command);
     std::string response;

@@ -15,7 +15,7 @@
 #include <fstream> // files
 #include <regex>
 #include <unistd.h>
-#include "base64.cpp"
+#include "base64.h"
 
 // https://support.sas.com/documentation/onlinedoc/sasc/doc/lr2/lrv2ch15.htm
 #include <sys/types.h>
